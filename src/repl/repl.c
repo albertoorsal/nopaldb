@@ -4,9 +4,9 @@
 #include "compiler/parser.h"
 #include "backend/vm.h"
 
-void repl_start() {
+void repl_start(const char *filename) {
     InputBuffer *input_buffer = new_input_buffer();
-    Table *table = new_table();
+    Table *table = db_open(filename);
 
     while (true) {
         print_prompt();
@@ -14,7 +14,7 @@ void repl_start() {
 
         // 1. Meta command? (lines starting with '.')
         if (input_buffer->buffer[0] == '.') {
-            switch (do_meta_command(input_buffer)) {
+            switch (do_meta_command(input_buffer, table)) {
                 case META_COMMAND_SUCCESS:
                     continue;
                 case META_COMMAND_UNRECOGNIZED_COMMAND:

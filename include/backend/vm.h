@@ -28,7 +28,10 @@ typedef enum {
     EXECUTE_TABLE_FULL
 } ExecuteResult;
 
-Table *new_table(void);
+Pager *pager_open(const char *filename);
+void *get_page(Pager *pager, uint32_t page_num);
+Table *db_open(const char *filename);
+void db_close(Table *table);
 void serialize_row(Row *source, void *destination);
 void deserialize_row(void *source, Row *destination);
 void *row_slot(Table *table, uint32_t row_num);

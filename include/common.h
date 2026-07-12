@@ -18,8 +18,14 @@ typedef struct {
 } Row;
 
 typedef struct {
+    int file_descriptor; // OS handle to the open file
+    uint32_t file_length; // size of the file in bytes
+    void* pages[TABLE_MAX_PAGES]; // the page cache
+} Pager;
+
+typedef struct {
+    Pager* pager;
     uint32_t num_rows;
-    void *pages[TABLE_MAX_PAGES];
 } Table;
 
 #endif /* NOPALDB_COMMON_H */
