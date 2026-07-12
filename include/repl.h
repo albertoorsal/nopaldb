@@ -3,6 +3,7 @@
 
 #include <stddef.h>
 #include <sys/types.h>
+#include "common.h"
 
 typedef struct {
     char   *buffer;
@@ -18,7 +19,7 @@ typedef enum {
 InputBuffer      *new_input_buffer(void);
 void              print_prompt(void);
 void              read_input(InputBuffer *input_buffer);
-MetaCommandResult do_meta_command(InputBuffer *input_buffer);
-void              repl_start(void);
+MetaCommandResult do_meta_command(InputBuffer *input_buffer, Table *table);
+void              repl_start(const char *filename);
 
 #endif /* NOPALDB_REPL_H */
