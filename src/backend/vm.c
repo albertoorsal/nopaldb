@@ -184,12 +184,10 @@ void print_leaf_node(void* node) {
 }
 
 /*
- * execute_insert - Append a new row to the table.
+ * execute_insert - Insert a new row into the correct sorted position.
  *
- * Checks that the table isn't full, then serializes the row directly
- * into the memory slot for the next available row. Incrementing
- * table->num_rows is what "commits" the insert in memory — it will be
- * persisted to disk when db_close is called.
+ * Uses leaf_node_find (binary search) to locate where the key belongs.
+ * If the key already exists, returns EXECUTE_DUPLICATE_KEY.
  */
 static ExecuteResult execute_insert(Statement *statement, Table *table) {
     void* node = get_page(table->pager, table->root_page_num);
@@ -197,8 +195,18 @@ static ExecuteResult execute_insert(Statement *statement, Table *table) {
         return EXECUTE_TABLE_FULL;
     }
     Row* row = &(statement->row_to_insert);
-    Cursor* cursor = table_end(table);
-    leaf_node_insert(cursor, row->id, row);
+    uint32_t key = row->id;
+    Cursor* cursor = table_find(table, key);
+
+    // Duplicate key check: if the cursor landed on an existing cell with
+    // the same key, reject the insert.
+    if (cursor->cell_num < *leaf_node_num_cells(node) &&
+        *leaf_node_key(node, cursor->cell_num) == key) {
+        free(cursor);
+        return EXECUTE_DUPLICATE_KEY;
+    }
+
+    leaf_node_insert(cursor, key, row);
     free(cursor);
     return EXECUTE_SUCCESS;
 }
@@ -257,7 +265,10 @@ void* leaf_node_value(void* node, uint32_t cell_num) {
     return leaf_node_cell(node, cell_num) + LEAF_NODE_KEY_SIZE;
 }
 
-void initialize_leaf_node(void* node) { *leaf_node_num_cells(node) = 0; }
+void initialize_leaf_node(void* node) {
+    *(uint8_t*)(node + NODE_TYPE_OFFSET) = NODE_LEAF;
+    *leaf_node_num_cells(node) = 0;
+}
 
 Cursor* table_start(Table* table) {
     Cursor* cursor = malloc(sizeof(Cursor));
@@ -290,6 +301,63 @@ void cursor_advance(Cursor* cursor) {
     cursor->cell_num += 1;
     if (cursor->cell_num >= *leaf_node_num_cells(node)) {
         cursor->end_of_table = true;
+    }
+}
+
+/*
+ * leaf_node_find - Binary search a leaf node for `key`.
+ *
+ * Maintains two bounds [min_index, one_past_max_index) and halves the
+ * range each iteration. Returns a cursor pointing at:
+ *   - the cell whose key == `key` (duplicate), or
+ *   - the cell where `key` should be inserted to keep the node sorted.
+ */
+Cursor* leaf_node_find(Table* table, uint32_t page_num, uint32_t key) {
+    void* node = get_page(table->pager, page_num);
+    uint32_t num_cells = *leaf_node_num_cells(node);
+
+    Cursor* cursor = malloc(sizeof(Cursor));
+    cursor->table = table;
+    cursor->page_num = page_num;
+    cursor->end_of_table = false;
+
+    uint32_t min_index = 0;
+    uint32_t one_past_max_index = num_cells;
+
+    while (min_index < one_past_max_index) {
+        uint32_t index = (min_index + one_past_max_index) / 2;
+        uint32_t key_at_index = *leaf_node_key(node, index);
+
+        if (key == key_at_index) {
+            cursor->cell_num = index;
+            return cursor;
+        }
+        if (key < key_at_index) {
+            one_past_max_index = index;
+        } else {
+            min_index = index + 1;
+        }
+    }
+
+    cursor->cell_num = min_index;
+    return cursor;
+}
+
+/*
+ * table_find - Return a cursor to the position of `key` in the tree.
+ *
+ * Dispatches to leaf_node_find for leaf nodes. Internal nodes are not
+ * yet implemented and will abort.
+ */
+Cursor* table_find(Table* table, uint32_t key) {
+    uint32_t root_page_num = table->root_page_num;
+    void* root_node = get_page(table->pager, root_page_num);
+
+    if (*(uint8_t*)(root_node + NODE_TYPE_OFFSET) == NODE_LEAF) {
+        return leaf_node_find(table, root_page_num, key);
+    } else {
+        printf("Need to implement searching an internal node.\n");
+        exit(EXIT_FAILURE);
     }
 }
 

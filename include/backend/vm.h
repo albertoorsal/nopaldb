@@ -12,7 +12,8 @@
 
 typedef enum {
     EXECUTE_SUCCESS,
-    EXECUTE_TABLE_FULL
+    EXECUTE_TABLE_FULL,
+    EXECUTE_DUPLICATE_KEY
 } ExecuteResult;
 
 typedef struct {
@@ -40,6 +41,8 @@ void initialize_leaf_node(void *node);
 void leaf_node_insert(Cursor *cursor, uint32_t key, Row *value);
 Cursor *table_start(Table *table);
 Cursor *table_end(Table *table);
+Cursor *table_find(Table *table, uint32_t key);
+Cursor *leaf_node_find(Table *table, uint32_t page_num, uint32_t key);
 void *cursor_value(Cursor *cursor);
 void cursor_advance(Cursor *cursor);
 
