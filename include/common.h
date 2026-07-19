@@ -51,11 +51,14 @@ static const uint32_t PARENT_POINTER_OFFSET = IS_ROOT_OFFSET + IS_ROOT_SIZE;
 static const uint8_t  COMMON_NODE_HEADER_SIZE =
     NODE_TYPE_SIZE + IS_ROOT_SIZE + PARENT_POINTER_SIZE;
 
-// Leaf node header: how many cells (key/value pairs) it holds
-static const uint32_t LEAF_NODE_NUM_CELLS_SIZE = sizeof(uint32_t);
+// Leaf node header: num_cells + next_leaf sibling pointer (linked list)
+static const uint32_t LEAF_NODE_NUM_CELLS_SIZE   = sizeof(uint32_t);
 static const uint32_t LEAF_NODE_NUM_CELLS_OFFSET = COMMON_NODE_HEADER_SIZE;
+static const uint32_t LEAF_NODE_NEXT_LEAF_SIZE   = sizeof(uint32_t);
+static const uint32_t LEAF_NODE_NEXT_LEAF_OFFSET =
+    LEAF_NODE_NUM_CELLS_OFFSET + LEAF_NODE_NUM_CELLS_SIZE;
 static const uint32_t LEAF_NODE_HEADER_SIZE =
-    COMMON_NODE_HEADER_SIZE + LEAF_NODE_NUM_CELLS_SIZE;
+    COMMON_NODE_HEADER_SIZE + LEAF_NODE_NUM_CELLS_SIZE + LEAF_NODE_NEXT_LEAF_SIZE;
 
 // Leaf node body: an array of cells, each cell = key + serialized row
 static const uint32_t LEAF_NODE_KEY_SIZE = sizeof(uint32_t);
@@ -68,6 +71,31 @@ static const uint32_t LEAF_NODE_CELL_SIZE =
 static const uint32_t LEAF_NODE_SPACE_FOR_CELLS = PAGE_SIZE - LEAF_NODE_HEADER_SIZE;
 static const uint32_t LEAF_NODE_MAX_CELLS =
     LEAF_NODE_SPACE_FOR_CELLS / LEAF_NODE_CELL_SIZE;
+
+// When splitting, the right (new) node gets the ceiling half.
+static const uint32_t LEAF_NODE_RIGHT_SPLIT_COUNT = (LEAF_NODE_MAX_CELLS + 1) / 2;
+static const uint32_t LEAF_NODE_LEFT_SPLIT_COUNT  =
+    (LEAF_NODE_MAX_CELLS + 1) - LEAF_NODE_RIGHT_SPLIT_COUNT;
+
+// Internal node header layout
+static const uint32_t INTERNAL_NODE_NUM_KEYS_SIZE   = sizeof(uint32_t);
+static const uint32_t INTERNAL_NODE_NUM_KEYS_OFFSET = COMMON_NODE_HEADER_SIZE;
+static const uint32_t INTERNAL_NODE_RIGHT_CHILD_SIZE   = sizeof(uint32_t);
+static const uint32_t INTERNAL_NODE_RIGHT_CHILD_OFFSET =
+    INTERNAL_NODE_NUM_KEYS_OFFSET + INTERNAL_NODE_NUM_KEYS_SIZE;
+static const uint32_t INTERNAL_NODE_HEADER_SIZE =
+    COMMON_NODE_HEADER_SIZE + INTERNAL_NODE_NUM_KEYS_SIZE + INTERNAL_NODE_RIGHT_CHILD_SIZE;
+
+// Internal node body: interleaved child pointers and separator keys
+// Layout: [child0][key0][child1][key1]...[childn] (right child in header)
+static const uint32_t INTERNAL_NODE_KEY_SIZE   = sizeof(uint32_t);
+static const uint32_t INTERNAL_NODE_CHILD_SIZE = sizeof(uint32_t);
+static const uint32_t INTERNAL_NODE_CELL_SIZE  =
+    INTERNAL_NODE_CHILD_SIZE + INTERNAL_NODE_KEY_SIZE;
+static const uint32_t INTERNAL_NODE_SPACE_FOR_CELLS =
+    PAGE_SIZE - INTERNAL_NODE_HEADER_SIZE;
+static const uint32_t INTERNAL_NODE_MAX_CELLS =
+    INTERNAL_NODE_SPACE_FOR_CELLS / INTERNAL_NODE_CELL_SIZE;
 
 /*
 byte 0                                                        byte 4095
