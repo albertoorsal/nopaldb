@@ -4,38 +4,60 @@
 #include "common.h"
 #include "compiler/parser.h"
 
-// Helper macro to compute the size of a struct field
-#define size_of_attribute(Struct, Attribute) sizeof(((Struct *)0)->Attribute)
-
-// Row field sizes
-#define ID_SIZE       size_of_attribute(Row, id)
-#define USERNAME_SIZE size_of_attribute(Row, username)
-#define EMAIL_SIZE    size_of_attribute(Row, email)
-
 // Row field offsets within a serialized page slot
 #define ID_OFFSET       0
 #define USERNAME_OFFSET (ID_OFFSET + ID_SIZE)
 #define EMAIL_OFFSET    (USERNAME_OFFSET + USERNAME_SIZE)
-#define ROW_SIZE        (ID_SIZE + USERNAME_SIZE + EMAIL_SIZE)
 
-// Page and table limits
-#define PAGE_SIZE      4096  // 4 KB — matches typical OS page size
-#define ROWS_PER_PAGE  (PAGE_SIZE / ROW_SIZE)
-#define TABLE_MAX_ROWS (ROWS_PER_PAGE * TABLE_MAX_PAGES)
 
 typedef enum {
     EXECUTE_SUCCESS,
-    EXECUTE_TABLE_FULL
+    EXECUTE_TABLE_FULL,
+    EXECUTE_DUPLICATE_KEY
 } ExecuteResult;
+
+typedef struct {
+    Table* table;
+    uint32_t page_num;
+    uint32_t cell_num;
+    bool end_of_table;  // true when positioned one past the last element
+} Cursor;
 
 Pager *pager_open(const char *filename);
 void *get_page(Pager *pager, uint32_t page_num);
+void pager_flush(Pager *pager, uint32_t page_num);
 Table *db_open(const char *filename);
 void db_close(Table *table);
 void serialize_row(Row *source, void *destination);
 void deserialize_row(void *source, Row *destination);
-void *row_slot(Table *table, uint32_t row_num);
 void print_row(Row *row);
+void print_leaf_node(void *node);
 ExecuteResult execute_statement(Statement *statement, Table *table);
+uint32_t *leaf_node_num_cells(void *node);
+uint32_t *leaf_node_next_leaf(void *node);
+void *leaf_node_cell(void *node, uint32_t cell_num);
+uint32_t *leaf_node_key(void *node, uint32_t cell_num);
+void *leaf_node_value(void *node, uint32_t cell_num);
+void initialize_leaf_node(void *node);
+void initialize_internal_node(void *node);
+uint32_t *internal_node_num_keys(void *node);
+uint32_t *internal_node_right_child(void *node);
+uint32_t *internal_node_cell(void *node, uint32_t cell_num);
+uint32_t *internal_node_child(void *node, uint32_t child_num);
+uint32_t *internal_node_key(void *node, uint32_t key_num);
+uint32_t *node_parent(void *node);
+bool is_node_root(void *node);
+void set_node_root(void *node, bool is_root);
+uint32_t get_node_max_key(void *node);
+uint32_t internal_node_insert(Table *table, uint32_t parent_page_num, uint32_t child_page_num);
+void leaf_node_insert(Cursor *cursor, uint32_t key, Row *value);
+void leaf_node_split_and_insert(Cursor *cursor, uint32_t key, Row *value);
+void create_new_root(Table *table, uint32_t right_child_page_num);
+Cursor *table_start(Table *table);
+Cursor *table_end(Table *table);
+Cursor *table_find(Table *table, uint32_t key);
+Cursor *leaf_node_find(Table *table, uint32_t page_num, uint32_t key);
+void *cursor_value(Cursor *cursor);
+void cursor_advance(Cursor *cursor);
 
 #endif /* NOPALDB_VM_H */

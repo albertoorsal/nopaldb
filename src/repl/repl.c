@@ -43,6 +43,9 @@ void repl_start(const char *filename) {
             case EXECUTE_TABLE_FULL:
                 printf("Error: Table full.\n");
                 break;
+            case EXECUTE_DUPLICATE_KEY:
+                printf("Error: Duplicate key.\n");
+                break;
         }
     }
 }
